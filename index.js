@@ -75,4 +75,35 @@ class Agent {
     }
 }
 
-module.exports = Agent;
+class Handler {
+    static get udf() {
+        return udf.udf;
+    }
+
+    info() {
+        throw new Error('info Not implemented');
+    }
+    init() {
+        throw new Error('init Not implemented');
+    }
+    snapshot() {
+        throw new Error('snapshot Not implemented');
+    }
+    restore() {
+        throw new Error('restore Not implemented');
+    }
+    begin_batch() {
+        throw new Error('begin_batch Not implemented');
+    }
+    point() {
+        throw new Error('point Not implemented');
+    }
+    end_batch() {
+        throw new Error('end_batch Not implemented');
+    }
+}
+
+module.exports = {
+    Agent: Agent,
+    Handler: Handler
+};
