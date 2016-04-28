@@ -1,66 +1,77 @@
 'use strict';
 
-const ProtoBuf = require('protobufjs');
 const varint   = require('varint');
+const udf      = require('./udf');
 
-console.log = console.error;
+// console.log = console.error;
 
 class Agent {
-    constructor(handler) {
-        let builder = ProtoBuf.newBuilder({ convertFieldsToCamelCase: true });
-        ProtoBuf.loadProtoFile("./udf.proto", builder);
-        let root = builder.build('udf');
-
-        this.root = root;
-        this.handler = handler;
+    constructor(opts) {
+        this.udf         = udf.udf;
+        this.handler     = opts.handler;
+        this.readStream  = opts.readStream;
+        this.writeStream = opts.writeStream;
     }
 
     start() {
-        process.stdin.on('readable', () => {
-            let varintBuf = process.stdin.read(1);
+        return this.readStream.on('readable', () => {
+            // TODO: make safer
+            let varintBuf = this.readStream.read(1);
             if (!varintBuf) return;
 
             let size = varint.decode(varintBuf);
 
             while (!size && varintBuf) {
-                Buffer.concat([varintBuf, process.stdin.read(1)]);
+                Buffer.concat([varintBuf, this.readStream.read(1)]);
                 size = varint.decode(varintBuf);
             }
 
             if (size) {
-                let messageByte = process.stdin.read(size);
+                let messageByte = this.readStream.read(size);
                 if (messageByte) {
-                    let request = this.root.Request.decode(messageByte);
-
-                    if (request.message == 'keepalive') {
-                        let resp = new this.root.Response({
-                            keepalive: new this.root.KeepaliveResponse({
-                                time: request.keepalive.time
-                            })
-                        });
-                        this.writeResponse(resp)
-                    } else if (request.message == 'info'){
-                        let resp = new this.root.Response({
-                            info: new this.root.InfoResponse({
-                                wants: this.root.EdgeType.STREAM,
-                                provides: this.root.EdgeType.STREAM
-                            })
-                        });
-                        this.writeResponse(resp);
-                    }
+                    let request = this.udf.Request.decode(messageByte);
+                    this.processRequest(request);
                 }
             }
-
         });
     }
 
-    writeResponse(resp) {
-        let encoded = resp.encode();
-        let dataBuf = encoded.toBuffer();
-        let varintBuf = new Buffer(varint.encode(dataBuf.length));
+    processRequest(request) {
+        let methodName = request.message;
 
+        if (methodName == 'keepalive') {
+            let resp = new this.udf.Response({
+                keepalive: new this.udf.KeepaliveResponse({
+                    time: request.keepalive.time
+                })
+            });
+
+            return this.writeResponse(resp);
+        }
+
+        let handlerFunc = this.handler[methodName];
+
+        if (typeof handlerFunc === 'function') {
+            let result = handlerFunc(this.udf, request[methodName]);
+
+            if (!result) return;
+
+            if (typeof result.then === 'function') {
+                return result.then(response => {
+                    return this.writeResponse(response);
+                });
+            }
+
+            return this.writeResponse(result);
+        }
+    }
+
+    writeResponse(resp) {
+        let dataBuf = resp.encode().toBuffer();
+        let varintBuf = new Buffer(varint.encode(dataBuf.length));
         let all = Buffer.concat([varintBuf, dataBuf]);
-        process.stdout.write(all);
+        // console.log(`\n \n SENT RESPONSE: ${all} \n \n `);
+        this.writeStream.write(all);
     }
 }
 
