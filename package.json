@@ -1,6 +1,6 @@
 {
   "name": "kapacitor-agent",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Agent implementation for Kapacitor UDF using protobufs",
   "main": "index.js",
   "scripts": {
