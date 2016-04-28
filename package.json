@@ -20,5 +20,9 @@
   "bugs": {
     "url": "https://github.com/rudzon/kapacitor-agent/issues"
   },
-  "homepage": "https://github.com/rudzon/kapacitor-agent#readme"
+  "homepage": "https://github.com/rudzon/kapacitor-agent#readme",
+  "dependencies": {
+    "protobufjs": "^5.0.1",
+    "varint": "^4.0.0"
+  }
 }
